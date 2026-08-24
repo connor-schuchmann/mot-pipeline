@@ -6,16 +6,18 @@ model_name = sys.argv[1]   # e.g. yolo26m.pt
 video = sys.argv[2]
 output = sys.argv[3]
 
-# COCO detector. Downloads weights on first use. "m" = medium (n, s, m, x)
+# out of box: ultralytics YOLO COCO detector (downloads weights on first use)
 model = YOLO(model_name)
 keep = {0,2,3,5,7} # {0=person, 2=car, 3=motorcycle, 5=bus, 7=truck}
 
 start = time.time()
 
 with open(output, "w") as f:
+    # out of box: YOLO video inference
     # stream=True: uses a single frame's information and discards it instead of holding all frames in RAM
     # verbose=False: prevents a new print for each frame
     for frame, result in enumerate(model.predict(video, conf=0.1, stream=True, verbose=False), start=1):
+        # added: filter classes and write detections as MOT-format det.txt
         for box in result.boxes:
             x1,y1,x2,y2 = box.xyxy[0].tolist()
             cls = int(box.cls)

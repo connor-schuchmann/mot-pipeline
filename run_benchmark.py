@@ -18,6 +18,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
+# out of box: boxmot config builder + eval engine
 from boxmot.configs import build_mode_namespace, BOXMOT_DEFAULTS
 from boxmot.engine.eval.evaluator import run_eval
 
@@ -55,6 +56,7 @@ def main():
 
     for tracker in TRACKERS:
         print(f"\n=== Running {tracker} ===")
+        # added: eval settings for each tracker
         payload = {
             "data": "fasttracker",
             "device": "0",
@@ -69,6 +71,7 @@ def main():
             "tracker": tracker,
         }
         try:
+            # out of box: runs tracking + metrics, same as the `boxmot eval` CLI
             args = build_mode_namespace("eval", payload, explicit_keys={"data", "split", "detection_source", "tracker", "device"})
             result = run_eval(args, verbose=False)
 
@@ -82,9 +85,8 @@ def main():
         with open(OUT_DIR / f"{stamp}_{tracker}_summary.json", "w") as f:
             json.dump(result.to_dict(include_raw=True), f, indent=2, default=str)
 
-        # result.summary is unreliable for multi-class benchmarks (boxmot falls
-        # back to the first class only, e.g. "person"); result.raw holds the
-        # real per-class metrics: {class_name: {metric: value, ...}}.
+        # added: read per-class metrics from result.raw — result.summary is
+        # unreliable for multi-class benchmarks (falls back to first class only)
         row = {"tracker": tracker}
         for cls_name, cls_metrics in result.raw.items():
             if not isinstance(cls_metrics, dict):
@@ -97,7 +99,7 @@ def main():
         rows.append(row)
         print(f"[OK] {tracker}")
 
-    # --- Write the comparison CSV ---
+    # added: merge all trackers into one comparison CSV
     if rows:
         # Union of all columns across trackers, "tracker" first
         columns = ["tracker"] + sorted({k for r in rows for k in r} - {"tracker"})

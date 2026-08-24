@@ -1,3 +1,4 @@
+# added: converts GRAM per-frame XML annotations to MOT gt.txt
 import argparse
 import xml.etree.ElementTree as ET
 from pathlib import Path
