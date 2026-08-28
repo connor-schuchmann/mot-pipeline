@@ -1,0 +1,25 @@
+# Python 3.10 (boxmot requires >=3.10,<3.14). Verified on 3.10.21.
+#
+# Install into the `mot` conda env:
+#     conda activate mot
+#     pip install -r requirements.txt
+#
+# Two dependencies are deliberately NOT pinned here:
+#
+# 1. boxmot. It is installed editable from a patched local checkout, not from
+#    PyPI, because the pipeline depends on the fix in patches/. Install it with:
+#        cd ~/boxmot-repo && git checkout v22.0.0
+#        git apply ~/mot-pipeline/patches/cache_cls_column.patch
+#        cp ~/mot-pipeline/patches/stmarc.yaml boxmot/configs/benchmarks/
+#        pip install -e .
+#    A plain `pip install boxmot` would silently drop the patch and every
+#    vehicle metric would score 0.00.
+#
+# 2. torch. The working install is 2.13.0+cu130, a CUDA build that plain pip
+#    resolution does not select. ultralytics pulls torch in, so install it
+#    first for your CUDA version, then run this file. Confirm with:
+#        python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
+#    Expected: 2.13.0+cu130 True   (verified on RTX 3060, driver 610.57.04)
+
+ultralytics==8.4.131
+opencv-python==4.14.0.94
