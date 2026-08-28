@@ -49,30 +49,40 @@ def flatten(d, prefix=""):
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--data", default="fasttracker", help="benchmark config name")
+    ap.add_argument("--split", default="train")
+    ap.add_argument("--trackers", default=None,
+                    help="comma separated subset of trackers (default: all)")
+    cli = ap.parse_args()
+
+    trackers = cli.trackers.split(",") if cli.trackers else TRACKERS
+
     OUT_DIR.mkdir(exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     rows = []
     errors = {}
 
-    for tracker in TRACKERS:
+    for tracker in trackers:
         print(f"\n=== Running {tracker} ===")
         # added: eval settings for each tracker
         payload = {
-            "data": "fasttracker",
+            "data": cli.data,
             "device": "0",
             "detector": [BOXMOT_DEFAULTS.shared.detector],
             "reid": [BOXMOT_DEFAULTS.shared.reid],
             "classes": None,
             "source": None,
             "benchmark": "",
-            "split": "train",
+            "split": cli.split,
             "detection_source": "public",
             "tune_kf": False,
             "tracker": tracker,
+            "per_class": True,
         }
         try:
             # out of box: runs tracking + metrics, same as the `boxmot eval` CLI
-            args = build_mode_namespace("eval", payload, explicit_keys={"data", "split", "detection_source", "tracker", "device"})
+            args = build_mode_namespace("eval", payload, explicit_keys={"data", "split", "detection_source", "tracker", "device", "per_class"})
             result = run_eval(args, verbose=False)
 
         except Exception:
@@ -82,7 +92,7 @@ def main():
             continue
 
         # Save the full summary as JSON per tracker (raw record, debugging aid)
-        with open(OUT_DIR / f"{stamp}_{tracker}_summary.json", "w") as f:
+        with open(OUT_DIR / f"{stamp}_{cli.data}_{tracker}_summary.json", "w") as f:
             json.dump(result.to_dict(include_raw=True), f, indent=2, default=str)
 
         # added: read per-class metrics from result.raw — result.summary is
@@ -103,7 +113,7 @@ def main():
     if rows:
         # Union of all columns across trackers, "tracker" first
         columns = ["tracker"] + sorted({k for r in rows for k in r} - {"tracker"})
-        csv_path = OUT_DIR / f"{stamp}_comparison.csv"
+        csv_path = OUT_DIR / f"{stamp}_{cli.data}_comparison.csv"
         with open(csv_path, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=columns, restval="")
             writer.writeheader()
@@ -112,7 +122,7 @@ def main():
 
     # --- Write error log if anything failed ---
     if errors:
-        err_path = OUT_DIR / f"{stamp}_errors.log"
+        err_path = OUT_DIR / f"{stamp}_{cli.data}_errors.log"
         with open(err_path, "w") as f:
             for tracker, tb in errors.items():
                 f.write(f"===== {tracker} =====\n{tb}\n")
