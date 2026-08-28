@@ -1,0 +1,56 @@
+# Urban Tracker St-Marc, converted to MOT layout by ~/mot-pipeline/convert_stmarc.py
+# Annotated video frames 1000-1999 become MOT frames 1-1000 (offset 999).
+#
+# detector_id below is the raw COCO class id written into det.txt by
+# cache_detections.py. boxmot writes tracker output as cls+1 and remaps gt to
+# detector_id+1, so these must be the COCO ids, not the gt ids.
+id: stmarc
+
+dataset:
+  id: stmarc
+  root: "/home/connor-schuchmann/UrbanTracker/datasets/UrbanTracker-Benchmark"
+  layout: mot
+  box_type: aabb
+  splits:
+    train: "train"
+  default_split: train
+  classes:
+    1: car
+    2: pedestrian
+  # bicycle is annotated but not evaluated: YOLO labels the rider as a person,
+  # so only 154/477 gt bike boxes match a bicycle detection while 186 match a
+  # person. Ignored so cyclists are neither scored as misses nor counted as
+  # false positives against the pedestrian class.
+  distractors:
+    9: bicycle
+
+evaluation:
+  classes:
+    - name: car
+      dataset_id: 1
+      detector_id: 2
+      detector_name: car
+    - name: pedestrian
+      dataset_id: 2
+      detector_id: 0
+      detector_name: person
+  ignore_dataset_ids: [9]
+
+download:
+  runs: ""
+
+detector:
+  id: yolo26m
+  model: "models/yolo26m.pt"
+  conf: 0.1
+  classes:
+    0: person
+    1: bicycle
+    2: car
+
+reid:
+  id: osnet_x0_25_msmt17
+  model: "models/osnet_x0_25_msmt17.pt"
+  device: ""
+  half: true
+  preprocess: resize

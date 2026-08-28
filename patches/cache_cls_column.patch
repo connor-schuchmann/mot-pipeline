@@ -1,0 +1,16 @@
+diff --git a/boxmot/engine/eval/cache.py b/boxmot/engine/eval/cache.py
+index 9e4b3744..07a07f8f 100644
+--- a/boxmot/engine/eval/cache.py
++++ b/boxmot/engine/eval/cache.py
+@@ -418,7 +418,10 @@ def _generate_public_dets_cache(
+         conf = raw[:, 6] if raw.shape[1] > 6 else np.ones(len(raw))
+         x1, y1 = x, y
+         x2, y2 = x + w, y + h
+-        cls = np.zeros(len(raw), dtype=np.float32)
++        # class comes from MOT column 7 when the file carries real class ids;
++        # MOT17-style det.txt stores -1 there, so fall back to class 0
++        cls = raw[:, 7] if raw.shape[1] > 7 else np.zeros(len(raw))
++        cls = np.where(cls < 0, 0, cls).astype(np.float32)
+ 
+         # Output format: (frame_id, x1, y1, x2, y2, conf, cls)
+         dets = np.column_stack([frame_ids, x1, y1, x2, y2, conf, cls]).astype(np.float32)
