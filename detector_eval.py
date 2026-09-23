@@ -17,7 +17,7 @@ MODELS = ["yolov5mu.pt", "yolov8m.pt", "yolo26m.pt"]
 
 ROOT = Path.home() / "UrbanTracker/datasets/UrbanTracker-Benchmark"
 DATASETS = {
-    "stmarc": ROOT / "train/stmarc",
+    "stmarc": ROOT / "train_stmarc/stmarc",
     "sherbrooke": ROOT / "train_sherbrooke/sherbrooke",
     "rouen": ROOT / "train_rouen/rouen",
 }
