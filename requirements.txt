@@ -1,8 +1,8 @@
 # Python 3.10 (boxmot requires >=3.10,<3.14). Verified on 3.10.21.
 #
-# Not pinned here:
-#   boxmot  installed editable from the patched local checkout, see patches/
-#   torch   2.13.0+cu130, a CUDA build plain pip resolution will not select;
+# Not here but important:
+#   boxmot: installed editable from the patched local checkout, see patches/
+#   torch: 2.13.0+cu130, a CUDA build plain pip resolution will not select;
 #           ultralytics pulls torch in, so install it first
 
 ultralytics==8.4.131
