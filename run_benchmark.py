@@ -1,14 +1,9 @@
-"""
-Benchmark runner: evaluates all boxmot-native trackers on the FastTracker
-benchmark using cached YOLO26m detections, and writes one comparison CSV.
+"""Run every tracker on one benchmark and write a per-tracker summary JSON.
 
-IMPORTANT: always run this from your home directory (~), in the boxmot conda env:
-    cd ~ && python run_benchmark.py
+Run from ~: boxmot puts its cache in runs/ relative to the working directory,
+so launching from elsewhere builds a second, stale cache.
 
-Why: boxmot creates its cache folder ("runs/") inside whatever directory you
-launch from. Launching from different directories creates separate, possibly
-out-of-date caches (this caused silently-wrong results once already).
-The one true cache lives at: ~/runs/dets_n_embs/fasttracker/
+    cd ~ && python mot-pipeline/run_benchmark.py --data stmarc
 """
 
 import argparse
@@ -18,11 +13,8 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-# out of box: boxmot config builder + eval engine
 from boxmot.configs import build_mode_namespace, BOXMOT_DEFAULTS
 from boxmot.engine.eval.evaluator import run_eval
-
-# --- Configuration -----------------------------------------------------------
 
 TRACKERS = [
     "bytetrack", "botsort", "strongsort", "ocsort", "deepocsort",
@@ -31,26 +23,11 @@ TRACKERS = [
 
 OUT_DIR = Path("/home/connor-schuchmann/benchmark_results")
 
-# Base arguments matching your working CLI call:
-# boxmot eval --benchmark fasttracker --detection-source public --split train
-
-# --- Helpers -----------------------------------------------------------------
-
-def flatten(d, prefix=""):
-    """Flatten nested dicts: {"car": {"HOTA": 37}} -> {"car.HOTA": 37}."""
-    flat = {}
-    for key, value in d.items():
-        name = f"{prefix}{key}"
-        if isinstance(value, dict):
-            flat.update(flatten(value, prefix=f"{name}."))
-        else:
-            flat[name] = value
-    return flat
-
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--data", default="fasttracker", help="benchmark config name")
+    ap.add_argument("--data", required=True,
+                    help="benchmark config name: stmarc, sherbrooke, rouen, urbantracker")
     ap.add_argument("--split", default="train")
     ap.add_argument("--trackers", default=None,
                     help="comma separated subset of trackers (default: all)")
@@ -65,7 +42,6 @@ def main():
 
     for tracker in trackers:
         print(f"\n=== Running {tracker} ===")
-        # added: eval settings for each tracker
         payload = {
             "data": cli.data,
             "device": "0",
@@ -84,7 +60,6 @@ def main():
             "n_threads": 1,
         }
         try:
-            # out of box: runs tracking + metrics, same as the `boxmot eval` CLI
             args = build_mode_namespace("eval", payload, explicit_keys={"data", "split", "detection_source", "tracker", "device", "per_class", "n_threads"})
             result = run_eval(args, verbose=False)
 
@@ -94,28 +69,28 @@ def main():
             errors[tracker] = traceback.format_exc()
             continue
 
-        # Save the full summary as JSON per tracker (raw record, debugging aid)
         with open(OUT_DIR / f"{stamp}_{cli.data}_{tracker}_summary.json", "w") as f:
             json.dump(result.to_dict(include_raw=True), f, indent=2, default=str)
 
-        # added: read per-class metrics from result.raw — result.summary is
-        # unreliable for multi-class benchmarks (falls back to first class only)
+        # read result.raw, not result.summary: summary reports the first class only
         row = {"tracker": tracker}
         for cls_name, cls_metrics in result.raw.items():
             if not isinstance(cls_metrics, dict):
                 continue
-            row.update({
-                f"{cls_name}.{key}": value
-                for key, value in cls_metrics.items()
-                if isinstance(value, (int, float))
-            })
+            for key, value in cls_metrics.items():
+                if isinstance(value, (int, float)):
+                    row[f"{cls_name}.{key}"] = value
         rows.append(row)
         print(f"[OK] {tracker}")
 
-    # added: merge all trackers into one comparison CSV
     if rows:
-        # Union of all columns across trackers, "tracker" first
-        columns = ["tracker"] + sorted({k for r in rows for k in r} - {"tracker"})
+        # every column any tracker produced, "tracker" first
+        metric_names = set()
+        for row in rows:
+            for key in row:
+                if key != "tracker":
+                    metric_names.add(key)
+        columns = ["tracker"] + sorted(metric_names)
         csv_path = OUT_DIR / f"{stamp}_{cli.data}_comparison.csv"
         with open(csv_path, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=columns, restval="")
@@ -123,13 +98,12 @@ def main():
             writer.writerows(rows)
         print(f"\nWrote comparison CSV: {csv_path}")
 
-    # --- Write error log if anything failed ---
     if errors:
         err_path = OUT_DIR / f"{stamp}_{cli.data}_errors.log"
         with open(err_path, "w") as f:
             for tracker, tb in errors.items():
                 f.write(f"===== {tracker} =====\n{tb}\n")
-        print(f"{len(errors)} tracker(s) failed — details in {err_path}")
+        print(f"{len(errors)} tracker(s) failed, details in {err_path}")
 
     print(f"\nDone: {len(rows)} succeeded, {len(errors)} failed.")
 
