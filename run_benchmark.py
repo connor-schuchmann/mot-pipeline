@@ -21,7 +21,7 @@ TRACKERS = [
     "hybridsort", "boosttrack", "occluboost", "sfsort",
 ]
 
-OUT_DIR = Path("/home/connor-schuchmann/benchmark_results")
+OUT_DIR = Path.home() / "benchmark_results"
 
 
 def main():

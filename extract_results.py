@@ -8,7 +8,7 @@ import csv
 import json
 from pathlib import Path
 
-RESULTS_DIR = Path("/home/connor-schuchmann/benchmark_results")
+RESULTS_DIR = Path.home() / "benchmark_results"
 OUT_CSV = RESULTS_DIR / "results.csv"
 
 TRACKER_ORDER = [

@@ -13,9 +13,9 @@ import csv
 import time
 from pathlib import Path
 
-MODELS = ["yolov5mu.pt", "yolov8m.pt", "/home/connor-schuchmann/yolo26m.pt"]
+MODELS = ["yolov5mu.pt", "yolov8m.pt", "yolo26m.pt"]
 
-ROOT = Path("/home/connor-schuchmann/UrbanTracker/datasets/UrbanTracker-Benchmark")
+ROOT = Path.home() / "UrbanTracker/datasets/UrbanTracker-Benchmark"
 DATASETS = {
     "stmarc": ROOT / "train/stmarc",
     "sherbrooke": ROOT / "train_sherbrooke/sherbrooke",
@@ -26,7 +26,7 @@ DATASETS = {
 GT_CLASSES = {1: "car", 2: "person", 9: "bicycle"}
 DET_TO_GT = {2: 1, 0: 2, 1: 9}
 
-OUT_CSV = Path("/home/connor-schuchmann/benchmark_results/detector_comparison.csv")
+OUT_CSV = Path.home() / "benchmark_results/detector_comparison.csv"
 RECALL_CONF = 0.1
 RECALL_IOU = 0.5
 MAX_DETS_PER_FRAME = 100
