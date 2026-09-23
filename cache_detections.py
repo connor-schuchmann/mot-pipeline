@@ -1,4 +1,5 @@
 from ultralytics import YOLO
+from pathlib import Path
 import time
 import sys
 
@@ -13,6 +14,9 @@ keep = {0,1,2,3,5,7} # {0=person, 1=bicycle, 2=car, 3=motorcycle, 5=bus, 7=truck
 
 start = time.time()
 frame = 0
+
+# the det/ folder may not exist yet
+Path(output).parent.mkdir(parents=True, exist_ok=True)
 
 with open(output, "w") as f:
     # stream=True: hold one frame at a time instead of all of them in RAM
