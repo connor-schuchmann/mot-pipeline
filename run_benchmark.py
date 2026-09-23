@@ -79,10 +79,13 @@ def main():
             "tune_kf": False,
             "tracker": tracker,
             "per_class": True,
+            # one sequence at a time, else concurrent sequences inflate the
+            # per-frame timings (accuracy metrics are unaffected)
+            "n_threads": 1,
         }
         try:
             # out of box: runs tracking + metrics, same as the `boxmot eval` CLI
-            args = build_mode_namespace("eval", payload, explicit_keys={"data", "split", "detection_source", "tracker", "device", "per_class"})
+            args = build_mode_namespace("eval", payload, explicit_keys={"data", "split", "detection_source", "tracker", "device", "per_class", "n_threads"})
             result = run_eval(args, verbose=False)
 
         except Exception:
