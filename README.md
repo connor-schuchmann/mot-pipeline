@@ -1,89 +1,122 @@
-# MOT tracker benchmark on urban intersection video
+# MOT tracker benchmark
 
-Nine multi-object trackers compared on Urban Tracker traffic footage, toward
-choosing a tracker for a college-campus intersection deployment with cars,
-pedestrians, cyclists and micromobility.
+Compares nine multi-object trackers (ByteTrack, BotSORT, StrongSORT, OC-SORT,
+DeepOC-SORT, HybridSORT, BoostTrack, OccluBoost, SFSORT) on Urban Tracker
+intersection video.
 
-Every tracker sees **identical detections**: YOLO26m is run once per sequence
-and cached to `det.txt`, so differences between trackers are differences in
-association, not in detection luck.
+YOLO26m runs once per sequence and its detections are cached to `det.txt`, so
+every tracker sees identical input and the differences are in association, not
+detection. Results are written to `results/results.csv`.
 
-## Results
-
-Full numbers in [`results/results.csv`](results/results.csv), 36 rows: nine
-trackers on each of three sequences plus a pooled row.
-
-Pooled across all three sequences (2602 frames, 64 ground-truth tracks):
-
-| tracker | ReID | HOTA person | HOTA car | HOTA bicycle | HOTA avg | ID switches | ms/frame |
-|---|---|---|---|---|---|---|---|
-| botsort | yes | 43.26 | 31.15 | 9.56 | **27.99** | 19 | 4.45 |
-| bytetrack | no | **45.96** | 27.16 | 9.40 | 27.51 | **17** | 2.33 |
-| hybridsort | yes | 42.99 | 26.51 | **11.90** | 27.13 | 73 | 10.82 |
-| strongsort | yes | 34.67 | **32.49** | 5.78 | 24.31 | 39 | 10.05 |
-| occluboost | yes | 41.31 | 23.98 | 6.96 | 24.08 | 24 | 4.83 |
-| deepocsort | yes | 35.19 | 30.23 | 5.61 | 23.68 | 40 | 5.21 |
-| sfsort | no | 29.48 | 32.72 | 5.11 | 22.44 | 131 | **0.38** |
-| ocsort | no | 29.81 | 31.41 | 3.60 | 21.61 | 19 | 2.20 |
-| boosttrack | yes | 35.74 | 22.21 | 5.89 | 21.28 | 24 | 5.24 |
-
-**BotSORT and ByteTrack lead**, and are the only trackers in the top three on
-every individual sequence as well. ByteTrack does it with no ReID model and at
-half the cost, which makes it the better default; BotSORT buys a little car
-accuracy for roughly twice the compute.
-
-**Cyclists are the weak point for every tracker.** COCO's `bicycle` class
-covers the bike alone while the ground truth boxes wrap rider and bike
-together, so only about a third of ground-truth bicycle boxes match a bicycle
-detection at IoU 0.5. Detector choice does not fix this: YOLOv5, v8, v11 and
-v8x all show the same person/bicycle label flicker (see
-[`results/detector_comparison.csv`](results/detector_comparison.csv), where
-YOLO26m is nonetheless the strongest of the four on bicycles). A stable
-cyclist class would need fine-tuning on a rider-inclusive label.
-
-Two caveats when reading the numbers. `HOTA_avg` averages only the classes a
-sequence actually has, so it is not comparable across sequences with different
-class counts. And `tracker_ms_per_frame` measures association only, since
-detections and ReID embeddings are served from cache; end-to-end throughput is
-dominated by the detector at roughly 25 ms/frame on an RTX 3060.
-
-## Benchmarks
-
-| name | sequence | frames | GT tracks (person / car / bicycle) |
-|---|---|---|---|
-| `stmarc` | Urban Tracker St-Marc | 1000 | 18 / 8 / 2 |
-| `sherbrooke` | Urban Tracker Sherbrooke | 1001 | 5 / 15 / 0 |
-| `rouen` | Urban Tracker Rouen | 601 | 11 / 4 / 1 |
-| `urbantracker` | all three pooled | 2602 | 34 / 27 / 3 |
-
-`urbantracker` pools the raw counts and recomputes the metrics, which is not
-the same as averaging the three scores, because HOTA is not linear in those
-counts. Both views are in the CSV.
-
-## Reproducing
-
-Requires the patched boxmot checkout described in
-[`patches/README.md`](patches/README.md); a stock `pip install boxmot` scores
-0.00 on every vehicle class.
+## 1. Environment
 
 ```bash
-python convert_urbantracker.py --seq stmarc --sqlite <stmarc_gt.sqlite> --out <.../gt/gt.txt>
-python cache_detections.py yolo26m.pt <.../img1> <.../det/det.txt>
+conda create -n mot python=3.10
+conda activate mot
 
-cd ~ && python mot-pipeline/run_benchmark.py --data stmarc   # all 9 trackers
-python mot-pipeline/extract_results.py --dataset stmarc      # append to results.csv
+# install a CUDA torch build first; plain pip picks a CPU one
+pip install torch --index-url https://download.pytorch.org/whl/cu130
+python -c "import torch; print(torch.cuda.is_available())"   # must print True
+
+pip install -r requirements.txt
 ```
 
-Run `run_benchmark.py` from `~`: boxmot puts its cache in `runs/` relative to
-the working directory, so launching elsewhere silently builds a second one.
+## 2. Patched boxmot
+
+The pipeline needs a one-line fix in boxmot. Without it every vehicle class
+scores 0.00.
+
+```bash
+git clone https://github.com/mikel-brostrom/boxmot ~/boxmot-repo
+cd ~/boxmot-repo
+git checkout v22.0.0
+git apply ~/mot-pipeline/patches/cache_cls_column.patch
+cp ~/mot-pipeline/patches/*.yaml boxmot/configs/benchmarks/
+pip install -e .
+```
+
+See `patches/README.md` for what the patch does.
+
+## 3. Get a sequence
+
+Download annotations and frames from https://www.jpjodoin.com/urbantracker/
+and unzip them. Sherbrooke and Rouen ship a `_frames.zip`; St-Marc ships only
+`stmarc_video.avi`, so extract its frames yourself with ffmpeg.
+
+## 4. Build the MOT folder
+
+Each sequence needs this layout, where `<root>` is the benchmark root named in
+its yaml under `patches/`:
+
+```
+<root>/<split>/<seq>/img1/000001.jpg ...   frames, renumbered from 1
+<root>/<split>/<seq>/gt/gt.txt             ground truth
+<root>/<split>/<seq>/det/det.txt           cached detections
+<root>/<split>/<seq>/seqinfo.ini           name, imDir, frameRate, seqLength, imWidth, imHeight, imExt
+```
+
+Only part of the annotated video is labelled, so copy just that frame range
+into `img1/` and renumber it to start at 1. Rouen for example is annotated over
+video frames 20 to 620, which become MOT frames 1 to 601. The per-sequence
+offsets are listed in `convert_urbantracker.py`.
+
+Each benchmark needs its **own split folder**. boxmot scores every sequence it
+finds under a split path, so two sequences sharing one folder are silently
+pooled into a single wrong score.
+
+Then generate the ground truth and the detections:
+
+```bash
+python convert_urbantracker.py --seq rouen \
+    --sqlite <...>/rouen_gt.sqlite --out <root>/train_rouen/rouen/gt/gt.txt
+
+python cache_detections.py yolo26m.pt \
+    <root>/train_rouen/rouen/img1 <root>/train_rouen/rouen/det/det.txt
+```
+
+## 5. Run the benchmark
+
+Run from your home directory. boxmot creates its cache in `runs/` relative to
+wherever you launch from, so running elsewhere silently builds a second one.
+
+```bash
+cd ~
+python mot-pipeline/run_benchmark.py --data rouen        # all nine trackers
+python mot-pipeline/extract_results.py --dataset rouen   # adds rows to results.csv
+```
+
+Benchmark names are `stmarc`, `sherbrooke`, `rouen`, and `urbantracker` (all
+three pooled). Add `--trackers bytetrack,botsort` to run a subset.
+
+`extract_results.py` replaces only the rows for the dataset you name, so other
+datasets already in the CSV are left alone.
+
+## Optional: compare detectors
+
+```bash
+python mot-pipeline/detector_eval.py
+```
+
+Runs YOLOv5m, YOLOv8m and YOLO26m over the converted sequences and writes
+per-class AP, recall and speed to `results/detector_comparison.csv`. It reads
+`img1/` and `gt.txt` only, and does not touch the cached detections.
 
 ## Files
 
-| file | purpose |
-|---|---|
-| `convert_urbantracker.py` | Polytrack sqlite annotations to MOT `gt.txt` |
-| `cache_detections.py` | run YOLO once, write MOT `det.txt` |
-| `run_benchmark.py` | run all nine trackers on one benchmark |
-| `extract_results.py` | summary JSONs to `results/results.csv` |
-| `detector_eval.py` | compare YOLO models: per-class AP, recall, speed |
-| `patches/` | boxmot patch and benchmark configs, with rebuild steps |
+- `convert_urbantracker.py`: Urban Tracker Polytrack sqlite annotations to MOT `gt.txt`
+- `cache_detections.py`: run YOLO once over a sequence, write MOT `det.txt`
+- `run_benchmark.py`: run all nine trackers on one benchmark
+- `extract_results.py`: per-tracker summary JSONs to `results/results.csv`
+- `detector_eval.py`: compare YOLO models by per-class AP, recall and speed
+- `patches/`: the boxmot patch, the four benchmark configs, and rebuild steps
+- `results/`: the output CSVs
+
+## Reading the numbers
+
+`HOTA_avg` averages only the classes a sequence actually contains, so it is not
+comparable between sequences with different class counts. Blank class columns
+mean the ground truth has none of that class, not a score of zero.
+
+`tracker_ms_per_frame` is association time only, since detections and ReID
+embeddings come from cache. End-to-end speed is dominated by the detector, at
+roughly 25 ms/frame on an RTX 3060.
