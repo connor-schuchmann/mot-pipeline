@@ -12,8 +12,8 @@ python -c "import torch; print(torch.cuda.is_available())"   # must print True
 pip install -r requirements.txt
 ```
 
-Install boxmot from a patched checkout. Without the patch every vehicle class
-scores 0.00.
+Do not run `pip install boxmot`. Run the commands below instead, otherwise
+every vehicle class scores 0.00.
 
 ```bash
 git clone https://github.com/mikel-brostrom/boxmot ~/boxmot-repo
