@@ -1,13 +1,13 @@
-id: stmarc
+id: rouen
 
 dataset:
-  id: stmarc
+  id: rouen
   root: "/home/connor-schuchmann/UrbanTracker/datasets/UrbanTracker-Benchmark"
   layout: mot
   box_type: aabb
   # one benchmark per split dir: the metrics stage scores everything it finds
   splits:
-    train: "train"
+    train: "train_rouen"
   default_split: train
   classes:
     1: car

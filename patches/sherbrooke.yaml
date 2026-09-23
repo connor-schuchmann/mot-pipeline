@@ -1,18 +1,18 @@
-id: stmarc
+id: sherbrooke
 
 dataset:
-  id: stmarc
+  id: sherbrooke
   root: "/home/connor-schuchmann/UrbanTracker/datasets/UrbanTracker-Benchmark"
   layout: mot
   box_type: aabb
   # one benchmark per split dir: the metrics stage scores everything it finds
   splits:
-    train: "train"
+    train: "train_sherbrooke"
   default_split: train
+  # no bicycles in this sequence's gt
   classes:
     1: car
     2: pedestrian
-    9: bicycle
 
 evaluation:
   # detector_id is the COCO id written into det.txt, not the gt id
@@ -25,10 +25,6 @@ evaluation:
       dataset_id: 2
       detector_id: 0
       detector_name: person
-    - name: bicycle
-      dataset_id: 9
-      detector_id: 1
-      detector_name: bicycle
 
 download:
   runs: ""
